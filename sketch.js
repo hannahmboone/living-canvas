@@ -1,6 +1,5 @@
-
-const NUM_PARTICLES = 2500;
-let particles = [];
+const NUM_PARTICLES = 1200; // per flock
+let flockA = [], flockB = [];
 let attractors = [];
 let video, handPose, poses = [];
 let poseActive = false;
@@ -10,7 +9,10 @@ let statusMsg = 'click to enable camera';
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
-  for (let i = 0; i < NUM_PARTICLES; i++) particles.push(new Particle());
+  for (let i = 0; i < NUM_PARTICLES; i++) {
+    flockA.push(new Particle('A'));
+    flockB.push(new Particle('B'));
+  }
   attractors = [{ x: width/2, y: height/2, vx: 0, vy: 0 }];
 }
 
@@ -36,11 +38,12 @@ function startCamera() {
   });
 }
 
-function getCurrentColor(lag) {
+function getCurrentColor(lag, flock) {
   let h = ((colorT + lag) * 60) % 360;
+  // Flock B is offset by 180 degrees on the color wheel
+  if (flock === 'B') h = (h + 180) % 360;
   let s = 55 + 20 * sin((colorT + lag) * 0.7);
   let b = 65 + 15 * sin((colorT + lag) * 0.4);
-  // Convert HSB to RGB manually — no colorMode switching
   let hh = h / 60;
   let i = Math.floor(hh);
   let f = hh - i;
@@ -85,12 +88,9 @@ function draw() {
     attractors = [{ x: mouseX, y: mouseY, vx, vy }];
   }
 
-  for (let p of particles) {
-    p.update();
-    p.draw();
-  }
+  for (let p of flockA) { p.update(); p.draw(); }
+  for (let p of flockB) { p.update(); p.draw(); }
 
-  // Status text
   fill(0, 0, 0, 60);
   noStroke();
   textFont('monospace');
@@ -104,16 +104,23 @@ function windowResized() {
 }
 
 class Particle {
-  constructor() { this.reset(true); }
+  constructor(flock) {
+    this.flock = flock;
+    this.reset(true);
+  }
 
   reset(init) {
+    // Two flocks spawn in slightly different areas
+    let offsetX = this.flock === 'A' ? -80 : 80;
+    let offsetY = this.flock === 'A' ? -40 : 40;
     this.pos = createVector(
-      width/2 + random(-200, 200),
-      height/2 + random(-200, 200)
+      width/2 + offsetX + random(-180, 180),
+      height/2 + offsetY + random(-180, 180)
     );
     this.vel = p5.Vector.random2D().mult(random(0.1, 0.4));
     this.acc = createVector(0, 0);
-    this.size = random(2, 4.5);
+    this.baseSize = random(2, 4.5);
+    this.size = this.baseSize;
     this.alpha = random(120, 210);
     this.maxSpeed = random(0.3, 2.5);
     this.life = random(0.6, 1.0);
@@ -132,20 +139,39 @@ class Particle {
     ) * TWO_PI * 2;
     this.acc.add(p5.Vector.fromAngle(angle).mult(0.10));
 
+    // Reset size each frame then grow if near attractor
+    this.size = this.baseSize;
+
     for (let a of attractors) {
-      let d = dist(this.pos.x, this.pos.y, a.x, a.y);
-      if (d < 300 && d > 1) {
-        let strength = (300 - d) / 300;
+      // Pull entire flock toward finger
+      let target = createVector(a.x, a.y);
+      let toFinger = p5.Vector.sub(target, this.pos);
+      let d = toFinger.mag();
+      if (d > 1) {
+        toFinger.normalize().mult(0.8);
+        this.acc.add(toFinger);
+      }
+      // Velocity push
+      if (d < 500 && d > 1) {
+        let strength = (500 - d) / 500;
         this.acc.add(createVector(a.vx, a.vy).mult(strength * 4.0));
+      }
+      // Size grows near finger
+      if (d < 150) {
+        let grow = map(d, 0, 150, 3.5, 0);
+        this.size = this.baseSize + grow;
       }
     }
 
-    let center = createVector(width/2, height/2);
-    let toCenter = p5.Vector.sub(center, this.pos);
-    let d = toCenter.mag();
+    // Center pull — each flock pulled to its own center
+    let offsetX = this.flock === 'A' ? -80 : 80;
+    let offsetY = this.flock === 'A' ? -40 : 40;
+    let home = createVector(width/2 + offsetX, height/2 + offsetY);
+    let toHome = p5.Vector.sub(home, this.pos);
+    let d = toHome.mag();
     if (d > 150) {
-      toCenter.normalize().mult((d - 150) * 0.001);
-      this.acc.add(toCenter);
+      toHome.normalize().mult((d - 150) * 0.001);
+      this.acc.add(toHome);
     }
 
     this.vel.add(this.acc);
@@ -160,10 +186,17 @@ class Particle {
   }
 
   draw() {
-    let col = getCurrentColor(this.colorLag);
+    let col = getCurrentColor(this.colorLag, this.flock);
     let fade = sin(PI * (this.age / this.life));
     noStroke();
     fill(col[0], col[1], col[2], this.alpha * fade);
     circle(this.pos.x, this.pos.y, this.size);
   }
 }
+
+
+
+
+
+
+
