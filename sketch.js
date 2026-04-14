@@ -111,8 +111,8 @@ class Particle {
 
   reset(init) {
     // Two flocks spawn in slightly different areas
-    let offsetX = this.flock === 'A' ? -80 : 80;
-    let offsetY = this.flock === 'A' ? -40 : 40;
+    let offsetX = this.flock === 'A' ? -250 : 250;
+    let offsetY = this.flock === 'A' ? -100 : 100;
     this.pos = createVector(
       width/2 + offsetX + random(-180, 180),
       height/2 + offsetY + random(-180, 180)
@@ -164,8 +164,8 @@ class Particle {
     }
 
     // Center pull — each flock pulled to its own center
-    let offsetX = this.flock === 'A' ? -80 : 80;
-    let offsetY = this.flock === 'A' ? -40 : 40;
+    let offsetX = this.flock === 'A' ? -250 : 250;
+    let offsetY = this.flock === 'A' ? -100 : 100;
     let home = createVector(width/2 + offsetX, height/2 + offsetY);
     let toHome = p5.Vector.sub(home, this.pos);
     let d = toHome.mag();
@@ -193,10 +193,3 @@ class Particle {
     circle(this.pos.x, this.pos.y, this.size);
   }
 }
-
-
-
-
-
-
-
