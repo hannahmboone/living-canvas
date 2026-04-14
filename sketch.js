@@ -1,3 +1,7 @@
+// Living Canvas – paste this into sketch.js
+// Also add this to your index.html <head>:
+// <script src="https://unpkg.com/ml5@0.12.2/dist/ml5.min.js"></script>
+
 const NUM_PARTICLES = 2500;
 let particles = [];
 let attractors = [];
@@ -36,13 +40,25 @@ function startCamera() {
 }
 
 function getCurrentColor(lag) {
-  colorMode(HSB, 360, 100, 100, 255);
   let h = ((colorT + lag) * 60) % 360;
   let s = 55 + 20 * sin((colorT + lag) * 0.7);
   let b = 65 + 15 * sin((colorT + lag) * 0.4);
-  let c = color(h, s, b);
-  colorMode(RGB, 255, 255, 255, 255);
-  return [red(c), green(c), blue(c)];
+  // Convert HSB to RGB manually — no colorMode switching
+  let hh = h / 60;
+  let i = Math.floor(hh);
+  let f = hh - i;
+  let sv = s / 100, bv = b / 100;
+  let p = bv * (1 - sv);
+  let q = bv * (1 - sv * f);
+  let t = bv * (1 - sv * (1 - f));
+  let r, g, bl;
+  if (i === 0) { r=bv; g=t; bl=p; }
+  else if (i === 1) { r=q; g=bv; bl=p; }
+  else if (i === 2) { r=p; g=bv; bl=t; }
+  else if (i === 3) { r=p; g=q; bl=bv; }
+  else if (i === 4) { r=t; g=p; bl=bv; }
+  else { r=bv; g=p; bl=q; }
+  return [r*255, g*255, bl*255];
 }
 
 function draw() {
