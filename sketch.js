@@ -1,6 +1,3 @@
-// Living Canvas – paste this into sketch.js
-// Also add this to your index.html <head>:
-// <script src="https://unpkg.com/ml5@0.12.2/dist/ml5.min.js"></script>
 
 const NUM_PARTICLES = 2500;
 let particles = [];
