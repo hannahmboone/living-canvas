@@ -1,3 +1,4 @@
+
 const NUM_PARTICLES = 1200; // per flock
 let flockA = [], flockB = [];
 let attractors = [];
@@ -29,11 +30,14 @@ function startCamera() {
     statusMsg = 'loading hand tracking...';
     handPose = ml5.handpose(video, { flipHorizontal: true, maxNumHands: 2 }, () => {
       statusMsg = 'move your hand!';
-      handPose.on('predict', results => {
-        poses = results;
-        if (results.length > 0) statusMsg = '✦ tracking';
-        else statusMsg = 'show your hand to the camera';
-      });
+      // Only detect every 5 frames to reduce CPU load
+      setInterval(() => {
+        handPose.predict(video, results => {
+          poses = results;
+          if (results.length > 0) statusMsg = '✦ tracking';
+          else statusMsg = 'show your hand to the camera';
+        });
+      }, 80); // ~12 times per second instead of 60
     });
   });
 }
