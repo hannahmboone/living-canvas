@@ -4,7 +4,7 @@ let attractors = [];
 let colorT = 0;
 let prevHandPos = { x: 0, y: 0 };
 let handX = -1, handY = -1, handVX = 0, handVY = 0;
-let statusMsg = 'press F to enable camera';
+let statusMsg = 'loading...';
 let cameraStarted = false;
 let framesSinceDetect = 0;
 
