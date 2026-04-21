@@ -1,53 +1,29 @@
-const NUM_PARTICLES = 800; // per flock, balanced for performance
+const NUM_PARTICLES = 800; // per flock
 let flockA = [], flockB = [];
 let attractors = [];
 let colorT = 0;
 let prevHandPos = { x: 0, y: 0 };
 let handX = -1, handY = -1, handVX = 0, handVY = 0;
-let statusMsg = 'loading...';
+let statusMsg = 'click to enable camera';
 let cameraStarted = false;
 let framesSinceDetect = 0;
-
-// Pre-allocate color array to avoid garbage collection
+let handsModel;
 let colorCache = [0, 0, 0];
 
-function setup() {
-  createCanvas(windowWidth, windowHeight);
-  // Use P2D renderer explicitly
-  pixelDensity(1); // critical for performance — disables retina scaling
-  for (let i = 0; i < NUM_PARTICLES; i++) {
-    flockA.push(new Particle('A'));
-    flockB.push(new Particle('B'));
-  }
-  attractors = [{ x: width/2, y: height/2, vx: 0, vy: 0 }];
-}
-
-function mousePressed() {
-  if (!cameraStarted) {
-    cameraStarted = true;
-    setTimeout(startMediaPipe, 100); // slight delay prevents canvas freeze
-  }
-}
-
-function startMediaPipe() {
-  statusMsg = 'starting camera...';
-  const videoEl = document.getElementById('input_video');
-
-  const hands = new Hands({
+function preload() {
+  handsModel = new Hands({
     locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4/${f}`
   });
-
-  hands.setOptions({
+  handsModel.setOptions({
     maxNumHands: 1,
     modelComplexity: 0,
     minDetectionConfidence: 0.6,
     minTrackingConfidence: 0.5
   });
-
-  hands.onResults(results => {
+  handsModel.onResults(results => {
     if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
       statusMsg = '✦ tracking';
-      let lm = results.multiHandLandmarks[0][8]; // index fingertip
+      let lm = results.multiHandLandmarks[0][8];
       let nx = lm.x * width;
       let ny = lm.y * height;
       handVX = (nx - prevHandPos.x) * 5.0;
@@ -61,24 +37,42 @@ function startMediaPipe() {
       handX = -1;
     }
   });
+}
 
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  pixelDensity(1);
+  for (let i = 0; i < NUM_PARTICLES; i++) {
+    flockA.push(new Particle('A'));
+    flockB.push(new Particle('B'));
+  }
+  attractors = [{ x: width/2, y: height/2, vx: 0, vy: 0 }];
+}
+
+function mousePressed() {
+  if (!cameraStarted) {
+    cameraStarted = true;
+    startMediaPipe();
+  }
+}
+
+function startMediaPipe() {
+  statusMsg = 'starting camera...';
+  const videoEl = document.getElementById('input_video');
   const camera = new Camera(videoEl, {
     onFrame: async () => {
-      // Only run detection every 3 frames
       framesSinceDetect++;
       if (framesSinceDetect >= 3) {
         framesSinceDetect = 0;
-        await hands.send({ image: videoEl });
+        await handsModel.send({ image: videoEl });
       }
     },
-    width: 320, // lower resolution = much faster
+    width: 320,
     height: 240
   });
-
   camera.start().then(() => { statusMsg = 'move your hand!'; });
 }
 
-// Manual HSB to RGB — no p5 colorMode switching
 function hsbToRgb(h, s, b) {
   h = h % 360;
   let sv = s/100, bv = b/100;
@@ -101,19 +95,17 @@ function draw() {
   background(255, 255, 255, 40);
   colorT += 0.003;
 
-  // Update attractors
   if (handX > 0) {
     attractors = [{ x: handX, y: handY, vx: handVX, vy: handVY }];
-  } else if (!cameraStarted) {
+  } else if (mouseX > 0 && mouseX < width && mouseY > 0 && mouseY < height) {
     attractors = [{ x: mouseX, y: mouseY, vx: mouseX - pmouseX, vy: mouseY - pmouseY }];
   } else {
-    attractors = []; // no attractor — particles drift freely
+    attractors = [];
   }
 
   for (let p of flockA) { p.update(); p.draw(); }
   for (let p of flockB) { p.update(); p.draw(); }
 
-  // Status
   fill(0, 0, 0, 60);
   noStroke();
   textFont('monospace');
@@ -148,7 +140,6 @@ class Particle {
     this.life = random(0.6, 1.0);
     this.age = init ? random(1) : 0;
     this.colorLag = random(-0.2, 0.2);
-    // Pre-compute hue offset so flock B is always complementary
     this.hueOffset = this.flock === 'B' ? 180 : 0;
   }
 
@@ -166,26 +157,24 @@ class Particle {
     this.size = this.baseSize;
 
     let a = attractors[0];
-    let dx = a.x - this.pos.x;
-    let dy = a.y - this.pos.y;
-    let d = Math.sqrt(dx*dx + dy*dy);
+    if (a) {
+      let dx = a.x - this.pos.x;
+      let dy = a.y - this.pos.y;
+      let d = Math.sqrt(dx*dx + dy*dy);
 
-    if (d > 1) {
-      // Pull toward finger
-      let inv = 0.8 / d;
-      this.acc.x += dx * inv;
-      this.acc.y += dy * inv;
-      // Velocity push
-      if (d < 250) {
-        let s = (250 - d) / 250 * 4.0;
-        this.acc.x += a.vx * s;
-        this.acc.y += a.vy * s;
+      if (d > 1) {
+        let inv = 0.8 / d;
+        this.acc.x += dx * inv;
+        this.acc.y += dy * inv;
+        if (d < 250) {
+          let s = (250 - d) / 250 * 4.0;
+          this.acc.x += a.vx * s;
+          this.acc.y += a.vy * s;
+        }
+        if (d < 80) this.size = this.baseSize + (80 - d) / 80 * 3.5;
       }
-      // Size near finger
-      if (d < 80) this.size = this.baseSize + (80 - d) / 80 * 3.5;
     }
 
-    // Home pull
     let ox = this.flock === 'A' ? -250 : 250;
     let oy = this.flock === 'A' ? -100 : 100;
     let hx = width/2 + ox - this.pos.x;
