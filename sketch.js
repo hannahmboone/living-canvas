@@ -1,3 +1,4 @@
+
 const NUM_PARTICLES = 800; // per flock, balanced for performance
 let flockA = [], flockB = [];
 let attractors = [];
@@ -174,13 +175,13 @@ class Particle {
       this.acc.x += dx * inv;
       this.acc.y += dy * inv;
       // Velocity push
-      if (d < 500) {
-        let s = (500 - d) / 500 * 4.0;
+      if (d < 250) {
+        let s = (250 - d) / 250 * 4.0;
         this.acc.x += a.vx * s;
         this.acc.y += a.vy * s;
       }
       // Size near finger
-      if (d < 150) this.size = this.baseSize + (150 - d) / 150 * 3.5;
+      if (d < 80) this.size = this.baseSize + (80 - d) / 80 * 3.5;
     }
 
     // Home pull
