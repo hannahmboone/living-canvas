@@ -1,3 +1,4 @@
+
 const NUM_PARTICLES = 800; // per flock, balanced for performance
 let flockA = [], flockB = [];
 let attractors = [];
@@ -106,6 +107,8 @@ function draw() {
     attractors = [{ x: handX, y: handY, vx: handVX, vy: handVY }];
   } else if (!cameraStarted) {
     attractors = [{ x: mouseX, y: mouseY, vx: mouseX - pmouseX, vy: mouseY - pmouseY }];
+  } else {
+    attractors = []; // no attractor — particles drift freely
   }
 
   for (let p of flockA) { p.update(); p.draw(); }
