@@ -1,4 +1,3 @@
-
 const NUM_PARTICLES = 800; // per flock, balanced for performance
 let flockA = [], flockB = [];
 let attractors = [];
@@ -105,7 +104,7 @@ function draw() {
   // Update attractors
   if (handX > 0) {
     attractors = [{ x: handX, y: handY, vx: handVX, vy: handVY }];
-  } else {
+  } else if (!cameraStarted) {
     attractors = [{ x: mouseX, y: mouseY, vx: mouseX - pmouseX, vy: mouseY - pmouseY }];
   }
 
