@@ -24,10 +24,10 @@ function preload() {
     if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
       statusMsg = '✦ tracking';
       let lm = results.multiHandLandmarks[0][8];
-      let nx = lm.x * width;
+      let nx = (1 - lm.x) * width; // mirror x to match natural hand direction
       let ny = lm.y * height;
-      handVX = (nx - prevHandPos.x) * -5.0;
-      handVY = (ny - prevHandPos.y) * -5.0;
+      handVX = (nx - prevHandPos.x) * 5.0;
+      handVY = (ny - prevHandPos.y) * 5.0;
       handX = nx;
       handY = ny;
       prevHandPos.x = nx;
