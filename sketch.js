@@ -1,15 +1,20 @@
-
-const NUM_PARTICLES = 1200; // per flock
+const NUM_PARTICLES = 800; // per flock, balanced for performance
 let flockA = [], flockB = [];
 let attractors = [];
-let video, handPose, poses = [];
-let poseActive = false;
 let colorT = 0;
-let prevHandPos = {};
+let prevHandPos = { x: 0, y: 0 };
+let handX = -1, handY = -1, handVX = 0, handVY = 0;
 let statusMsg = 'click to enable camera';
+let cameraStarted = false;
+let framesSinceDetect = 0;
+
+// Pre-allocate color array to avoid garbage collection
+let colorCache = [0, 0, 0];
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
+  // Use P2D renderer explicitly
+  pixelDensity(1); // critical for performance — disables retina scaling
   for (let i = 0; i < NUM_PARTICLES; i++) {
     flockA.push(new Particle('A'));
     flockB.push(new Particle('B'));
@@ -18,83 +23,95 @@ function setup() {
 }
 
 function mousePressed() {
-  if (!poseActive) startCamera();
+  if (!cameraStarted) {
+    cameraStarted = true;
+    startMediaPipe();
+  }
 }
 
-function startCamera() {
-  poseActive = true;
+function startMediaPipe() {
   statusMsg = 'starting camera...';
-  video = createCapture(VIDEO, () => {
-    video.hide();
-    video.size(640, 480);
-    statusMsg = 'loading hand tracking...';
-    handPose = ml5.handpose(video, { flipHorizontal: true, maxNumHands: 2 }, () => {
-      statusMsg = 'move your hand!';
-      // Only detect every 5 frames to reduce CPU load
-      setInterval(() => {
-        handPose.predict(video, results => {
-          poses = results;
-          if (results.length > 0) statusMsg = '✦ tracking';
-          else statusMsg = 'show your hand to the camera';
-        });
-      }, 80); // ~12 times per second instead of 60
-    });
+  const videoEl = document.getElementById('input_video');
+
+  const hands = new Hands({
+    locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4/${f}`
   });
+
+  hands.setOptions({
+    maxNumHands: 1,
+    modelComplexity: 0,
+    minDetectionConfidence: 0.6,
+    minTrackingConfidence: 0.5
+  });
+
+  hands.onResults(results => {
+    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+      statusMsg = '✦ tracking';
+      let lm = results.multiHandLandmarks[0][8]; // index fingertip
+      let nx = lm.x * width;
+      let ny = lm.y * height;
+      handVX = (nx - prevHandPos.x) * 5.0;
+      handVY = (ny - prevHandPos.y) * 5.0;
+      handX = nx;
+      handY = ny;
+      prevHandPos.x = nx;
+      prevHandPos.y = ny;
+    } else {
+      statusMsg = 'show your hand!';
+      handX = -1;
+    }
+  });
+
+  const camera = new Camera(videoEl, {
+    onFrame: async () => {
+      // Only run detection every 3 frames
+      framesSinceDetect++;
+      if (framesSinceDetect >= 3) {
+        framesSinceDetect = 0;
+        await hands.send({ image: videoEl });
+      }
+    },
+    width: 320, // lower resolution = much faster
+    height: 240
+  });
+
+  camera.start().then(() => { statusMsg = 'move your hand!'; });
 }
 
-function getCurrentColor(lag, flock) {
-  let h = ((colorT + lag) * 60) % 360;
-  // Flock B is offset by 180 degrees on the color wheel
-  if (flock === 'B') h = (h + 180) % 360;
-  let s = 55 + 20 * sin((colorT + lag) * 0.7);
-  let b = 65 + 15 * sin((colorT + lag) * 0.4);
-  let hh = h / 60;
-  let i = Math.floor(hh);
-  let f = hh - i;
-  let sv = s / 100, bv = b / 100;
-  let p = bv * (1 - sv);
-  let q = bv * (1 - sv * f);
-  let t = bv * (1 - sv * (1 - f));
+// Manual HSB to RGB — no p5 colorMode switching
+function hsbToRgb(h, s, b) {
+  h = h % 360;
+  let sv = s/100, bv = b/100;
+  let hh = h/60, i = Math.floor(hh), f = hh - i;
+  let p = bv*(1-sv), q = bv*(1-sv*f), t = bv*(1-sv*(1-f));
   let r, g, bl;
-  if (i === 0) { r=bv; g=t; bl=p; }
-  else if (i === 1) { r=q; g=bv; bl=p; }
-  else if (i === 2) { r=p; g=bv; bl=t; }
-  else if (i === 3) { r=p; g=q; bl=bv; }
-  else if (i === 4) { r=t; g=p; bl=bv; }
-  else { r=bv; g=p; bl=q; }
-  return [r*255, g*255, bl*255];
+  if(i===0){r=bv;g=t;bl=p;}
+  else if(i===1){r=q;g=bv;bl=p;}
+  else if(i===2){r=p;g=bv;bl=t;}
+  else if(i===3){r=p;g=q;bl=bv;}
+  else if(i===4){r=t;g=p;bl=bv;}
+  else{r=bv;g=p;bl=q;}
+  colorCache[0] = r*255;
+  colorCache[1] = g*255;
+  colorCache[2] = bl*255;
+  return colorCache;
 }
 
 function draw() {
   background(255, 255, 255, 40);
   colorT += 0.003;
 
-  if (poses.length > 0) {
-    attractors = [];
-    let landmarks = poses[0].landmarks || poses[0].keypoints;
-    let keyIndices = [8];
-    for (let i of keyIndices) {
-      if (!landmarks[i]) continue;
-      let lm = landmarks[i];
-      let rawX = Array.isArray(lm) ? lm[0] : lm.x;
-      let rawY = Array.isArray(lm) ? lm[1] : lm.y;
-      let x = map(rawX, 0, 640, 0, width);
-      let y = map(rawY, 0, 480, 0, height);
-      let prev = prevHandPos[i] || { x, y };
-      let vx = (x - prev.x) * 6.0;
-      let vy = (y - prev.y) * 6.0;
-      attractors.push({ x, y, vx, vy });
-      prevHandPos[i] = { x, y };
-    }
+  // Update attractors
+  if (handX > 0) {
+    attractors = [{ x: handX, y: handY, vx: handVX, vy: handVY }];
   } else {
-    let vx = mouseX - pmouseX;
-    let vy = mouseY - pmouseY;
-    attractors = [{ x: mouseX, y: mouseY, vx, vy }];
+    attractors = [{ x: mouseX, y: mouseY, vx: mouseX - pmouseX, vy: mouseY - pmouseY }];
   }
 
   for (let p of flockA) { p.update(); p.draw(); }
   for (let p of flockB) { p.update(); p.draw(); }
 
+  // Status
   fill(0, 0, 0, 60);
   noStroke();
   textFont('monospace');
@@ -114,22 +131,23 @@ class Particle {
   }
 
   reset(init) {
-    // Two flocks spawn in slightly different areas
-    let offsetX = this.flock === 'A' ? -250 : 250;
-    let offsetY = this.flock === 'A' ? -100 : 100;
+    let ox = this.flock === 'A' ? -250 : 250;
+    let oy = this.flock === 'A' ? -100 : 100;
     this.pos = createVector(
-      width/2 + offsetX + random(-180, 180),
-      height/2 + offsetY + random(-180, 180)
+      width/2 + ox + random(-180, 180),
+      height/2 + oy + random(-180, 180)
     );
     this.vel = p5.Vector.random2D().mult(random(0.1, 0.4));
     this.acc = createVector(0, 0);
-    this.baseSize = random(2, 4.5);
+    this.baseSize = random(2, 4);
     this.size = this.baseSize;
-    this.alpha = random(120, 210);
-    this.maxSpeed = random(0.3, 2.5);
+    this.alpha = random(120, 200);
+    this.maxSpeed = random(0.3, 2.0);
     this.life = random(0.6, 1.0);
     this.age = init ? random(1) : 0;
     this.colorLag = random(-0.2, 0.2);
+    // Pre-compute hue offset so flock B is always complementary
+    this.hueOffset = this.flock === 'B' ? 180 : 0;
   }
 
   update() {
@@ -143,39 +161,38 @@ class Particle {
     ) * TWO_PI * 2;
     this.acc.add(p5.Vector.fromAngle(angle).mult(0.10));
 
-    // Reset size each frame then grow if near attractor
     this.size = this.baseSize;
 
-    for (let a of attractors) {
-      // Pull entire flock toward finger
-      let target = createVector(a.x, a.y);
-      let toFinger = p5.Vector.sub(target, this.pos);
-      let d = toFinger.mag();
-      if (d > 1) {
-        toFinger.normalize().mult(0.8);
-        this.acc.add(toFinger);
-      }
+    let a = attractors[0];
+    let dx = a.x - this.pos.x;
+    let dy = a.y - this.pos.y;
+    let d = Math.sqrt(dx*dx + dy*dy);
+
+    if (d > 1) {
+      // Pull toward finger
+      let inv = 0.8 / d;
+      this.acc.x += dx * inv;
+      this.acc.y += dy * inv;
       // Velocity push
-      if (d < 500 && d > 1) {
-        let strength = (500 - d) / 500;
-        this.acc.add(createVector(a.vx, a.vy).mult(strength * 4.0));
+      if (d < 500) {
+        let s = (500 - d) / 500 * 4.0;
+        this.acc.x += a.vx * s;
+        this.acc.y += a.vy * s;
       }
-      // Size grows near finger
-      if (d < 150) {
-        let grow = map(d, 0, 150, 3.5, 0);
-        this.size = this.baseSize + grow;
-      }
+      // Size near finger
+      if (d < 150) this.size = this.baseSize + (150 - d) / 150 * 3.5;
     }
 
-    // Center pull — each flock pulled to its own center
-    let offsetX = this.flock === 'A' ? -250 : 250;
-    let offsetY = this.flock === 'A' ? -100 : 100;
-    let home = createVector(width/2 + offsetX, height/2 + offsetY);
-    let toHome = p5.Vector.sub(home, this.pos);
-    let d = toHome.mag();
-    if (d > 150) {
-      toHome.normalize().mult((d - 150) * 0.001);
-      this.acc.add(toHome);
+    // Home pull
+    let ox = this.flock === 'A' ? -250 : 250;
+    let oy = this.flock === 'A' ? -100 : 100;
+    let hx = width/2 + ox - this.pos.x;
+    let hy = height/2 + oy - this.pos.y;
+    let hd = Math.sqrt(hx*hx + hy*hy);
+    if (hd > 150) {
+      let f = (hd - 150) * 0.001 / hd;
+      this.acc.x += hx * f;
+      this.acc.y += hy * f;
     }
 
     this.vel.add(this.acc);
@@ -190,7 +207,10 @@ class Particle {
   }
 
   draw() {
-    let col = getCurrentColor(this.colorLag, this.flock);
+    let h = ((colorT + this.colorLag) * 60 + this.hueOffset) % 360;
+    let s = 55 + 20 * sin((colorT + this.colorLag) * 0.7);
+    let b = 65 + 15 * sin((colorT + this.colorLag) * 0.4);
+    let col = hsbToRgb(h, s, b);
     let fade = sin(PI * (this.age / this.life));
     noStroke();
     fill(col[0], col[1], col[2], this.alpha * fade);
