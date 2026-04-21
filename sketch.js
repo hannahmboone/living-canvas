@@ -1,4 +1,3 @@
-
 const NUM_PARTICLES = 800; // per flock, balanced for performance
 let flockA = [], flockB = [];
 let attractors = [];
@@ -26,7 +25,7 @@ function setup() {
 function mousePressed() {
   if (!cameraStarted) {
     cameraStarted = true;
-    startMediaPipe();
+    setTimeout(startMediaPipe, 100); // slight delay prevents canvas freeze
   }
 }
 
