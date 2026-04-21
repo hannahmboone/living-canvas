@@ -1,4 +1,5 @@
-const NUM_PARTICLES = 800; // per flock
+
+const NUM_PARTICLES = 1600; // per flock
 let flockA = [], flockB = [];
 let attractors = [];
 let colorT = 0;
