@@ -1,11 +1,10 @@
-
 const NUM_PARTICLES = 1600;
 let flockA = [], flockB = [];
 let attractors = [];
 let colorT = 0;
 let prevHandPos = { x: 0, y: 0 };
 let handX = -1, handY = -1, handVX = 0, handVY = 0;
-let statusMsg = 'click to enable camera';
+let statusMsg = '';
 let cameraStarted = false;
 let framesSinceDetect = 0;
 let handsModel;
@@ -16,6 +15,13 @@ let audioCtx;
 let soundStarted = false;
 let lastVX = 0, lastVY = 0;
 let gongCooldown = 0;
+
+// Landing page state
+let state = 'landing'; // 'landing' | 'dispersing' | 'canvas'
+let disperseT = 0;
+let landingParticles = [];
+let btnX, btnY, btnW, btnH;
+let font;
 
 function preload() {
   handsModel = new Hands({
@@ -49,23 +55,49 @@ function preload() {
 function setup() {
   createCanvas(windowWidth, windowHeight);
   pixelDensity(1);
+
+  // Init flocks off screen — they'll be called in during disperse
   for (let i = 0; i < NUM_PARTICLES; i++) {
-    flockA.push(new Particle('A'));
-    flockB.push(new Particle('B'));
+    flockA.push(new Particle('A', true));
+    flockB.push(new Particle('B', true));
   }
   attractors = [];
+
+  // Button position
+  btnW = 220; btnH = 52;
+  btnX = width/2 - btnW/2;
+  btnY = height/2 + 80;
+
+  // Create landing particles — dense cluster that forms the title area
+  for (let i = 0; i < NUM_PARTICLES * 2; i++) {
+    landingParticles.push(new LandingParticle());
+  }
 }
 
 function mousePressed() {
-  if (!cameraStarted) {
+  if (state === 'landing') {
+    let cx = 60 + 22;
+    let cy = height - 100;
+    if (dist(mouseX, mouseY, cx, cy) < 28) {
+      startDisperse();
+    }
+  } else if (state === 'canvas' && !cameraStarted) {
     cameraStarted = true;
     startMediaPipe();
     startSound();
   }
 }
 
+function startDisperse() {
+  state = 'dispersing';
+  disperseT = 0;
+  startSound();
+  // Trigger a gong on disperse
+  setTimeout(() => triggerGong(), 100);
+}
+
 function startMediaPipe() {
-  statusMsg = 'starting camera...';
+  statusMsg = 'show your hand!';
   const videoEl = document.getElementById('input_video');
   const camera = new Camera(videoEl, {
     onFrame: async () => {
@@ -78,7 +110,7 @@ function startMediaPipe() {
     width: 320,
     height: 240
   });
-  camera.start().then(() => { statusMsg = 'move your hand!'; });
+  camera.start();
 }
 
 function startSound() {
@@ -91,23 +123,15 @@ function triggerGong() {
   if (!audioCtx) return;
   let notes = [196, 220, 261.6, 293.6, 329.6, 392];
   let freq = notes[Math.floor(Math.random() * notes.length)];
-
   let osc = audioCtx.createOscillator();
   let osc2 = audioCtx.createOscillator();
   let g = audioCtx.createGain();
   let g2 = audioCtx.createGain();
-
-  osc.type = 'sine';
-  osc.frequency.value = freq;
-  osc2.type = 'sine';
-  osc2.frequency.value = freq * 2.756;
+  osc.type = 'sine'; osc.frequency.value = freq;
+  osc2.type = 'sine'; osc2.frequency.value = freq * 2.756;
   g2.gain.value = 0.3;
-
-  osc.connect(g);
-  osc2.connect(g2);
-  g2.connect(g);
+  osc.connect(g); osc2.connect(g2); g2.connect(g);
   g.connect(audioCtx.destination);
-
   let t = audioCtx.currentTime;
   g.gain.setValueAtTime(0.22, t);
   g.gain.exponentialRampToValueAtTime(0.001, t + 3.0);
@@ -127,27 +151,92 @@ function hsbToRgb(h, s, b) {
   else if(i===3){r=p;g=q;bl=bv;}
   else if(i===4){r=t;g=p;bl=bv;}
   else{r=bv;g=p;bl=q;}
-  colorCache[0] = r*255;
-  colorCache[1] = g*255;
-  colorCache[2] = bl*255;
+  colorCache[0]=r*255; colorCache[1]=g*255; colorCache[2]=bl*255;
   return colorCache;
 }
 
 function draw() {
+  background(0);
+
+  if (state === 'landing') {
+    drawLanding();
+  } else if (state === 'dispersing') {
+    drawDispersing();
+  } else {
+    drawCanvas();
+  }
+}
+
+function drawLanding() {
+  // Animate landing particles
+  for (let p of landingParticles) {
+    p.update();
+    p.draw();
+  }
+
+  // Title — top left
+  fill(255, 255, 255, 220);
+  noStroke();
+  textFont('monospace');
+  textAlign(LEFT, TOP);
+  textSize(96);
+  text('flock', 60, 50);
+
+  // Subtitle
+  fill(255, 255, 255, 120);
+  textSize(12);
+  textAlign(LEFT, TOP);
+  text('press to start', 60, 165);
+
+  // Circular button — bottom left
+  let cx = 60 + 22;
+  let cy = height - 100;
+  let r = 28;
+  let hover = dist(mouseX, mouseY, cx, cy) < r;
+  noFill();
+  stroke(255, 255, 255, hover ? 230 : 130);
+  strokeWeight(1);
+  circle(cx, cy, r * 2);
+  fill(255, 255, 255, hover ? 230 : 130);
+  noStroke();
+  textSize(16);
+  textAlign(CENTER, CENTER);
+  text('→', cx, cy);
+}
+
+function drawDispersing() {
+  disperseT += 0.025;
+  colorT += 0.003;
+
+  // Fade out landing particles
+  for (let p of landingParticles) {
+    p.disperseUpdate(disperseT);
+    p.draw();
+  }
+
+  // Fade in flocks
+  for (let p of flockA) { p.update(); p.draw(); }
+  for (let p of flockB) { p.update(); p.draw(); }
+
+  if (disperseT > 1.5) {
+    state = 'canvas';
+    statusMsg = 'click to enable camera';
+  }
+}
+
+function drawCanvas() {
   background(0, 0, 0, 40);
   colorT += 0.003;
 
-  // Detect direction change and trigger gong
   if (soundStarted && handX > 0) {
     gongCooldown--;
-    let dotProduct = handVX * lastVX + handVY * lastVY;
+    let dot = handVX * lastVX + handVY * lastVY;
     let speed = Math.sqrt(handVX*handVX + handVY*handVY);
-    if (dotProduct < -4 && speed > 3 && gongCooldown <= 0) {
+    if (dot < -4 && speed > 3 && gongCooldown <= 0) {
       triggerGong();
       gongCooldown = 10;
     }
-    lastVX = handVX;
-    lastVY = handVY;
+    lastVX = handVX; lastVY = handVY;
   }
 
   if (handX > 0) {
@@ -161,22 +250,75 @@ function draw() {
   for (let p of flockA) { p.update(); p.draw(); }
   for (let p of flockB) { p.update(); p.draw(); }
 
-  fill(255, 255, 255, 60);
-  noStroke();
-  textFont('monospace');
-  textSize(11);
-  textAlign(CENTER);
-  text(statusMsg, width/2, height - 16);
+  if (statusMsg) {
+    fill(255, 255, 255, 60);
+    noStroke();
+    textFont('monospace');
+    textSize(11);
+    textAlign(CENTER);
+    text(statusMsg, width/2, height - 16);
+  }
 }
 
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
+  btnX = width/2 - btnW/2;
+  btnY = height/2 + 80;
 }
 
+// ── Landing Particle ──
+class LandingParticle {
+  constructor() {
+    this.reset();
+    this.alpha = random(30, 130);
+  }
+  reset() {
+    // Orbit loosely around the center title area
+    let angle = random(TWO_PI);
+    let r = random(20, 320);
+    this.x = width/2 + cos(angle) * r;
+    this.y = height/2 + sin(angle) * r * 0.5;
+    this.vx = random(-0.3, 0.3);
+    this.vy = random(-0.3, 0.3);
+    this.size = random(1.5, 3.5);
+    this.hue = random(360);
+    this.alpha = random(30, 130);
+    this.disperseVX = random(-8, 8);
+    this.disperseVY = random(-12, -2);
+  }
+  update() {
+    // Gentle drift
+    this.vx += random(-0.02, 0.02);
+    this.vy += random(-0.02, 0.02);
+    this.vx *= 0.98;
+    this.vy *= 0.98;
+    this.x += this.vx;
+    this.y += this.vy;
+    // Wrap
+    if (this.x < 0) this.x = width;
+    if (this.x > width) this.x = 0;
+    if (this.y < 0) this.y = height;
+    if (this.y > height) this.y = 0;
+  }
+  disperseUpdate(t) {
+    this.x += this.disperseVX * t * 1.5;
+    this.y += this.disperseVY * t * 1.5;
+    this.alpha = max(0, 130 - t * 120);
+  }
+  draw() {
+    colorMode(HSB, 360, 100, 100, 255);
+    fill(this.hue, 50, 80, this.alpha);
+    noStroke();
+    circle(this.x, this.y, this.size);
+    colorMode(RGB, 255, 255, 255, 255);
+  }
+}
+
+// ── Flock Particle ──
 class Particle {
-  constructor(flock) {
+  constructor(flock, init) {
     this.flock = flock;
-    this.reset(true);
+    this.reset(init || false);
   }
 
   reset(init) {
@@ -190,7 +332,8 @@ class Particle {
     this.acc = createVector(0, 0);
     this.baseSize = random(2, 4);
     this.size = this.baseSize;
-    this.alpha = random(120, 200);
+    this.alpha = init ? 0 : random(120, 200);
+    this.targetAlpha = random(120, 200);
     this.maxSpeed = random(0.3, 2.0);
     this.life = random(0.6, 1.0);
     this.age = init ? random(1) : 0;
@@ -202,6 +345,11 @@ class Particle {
     this.age += 0.002;
     if (this.age > this.life) this.reset(false);
 
+    // Fade in during disperse
+    if (state === 'dispersing') {
+      this.alpha = min(this.targetAlpha, this.alpha + 1.5);
+    }
+
     let angle = noise(
       this.pos.x * 0.0008,
       this.pos.y * 0.0008,
@@ -210,16 +358,14 @@ class Particle {
     this.acc.add(p5.Vector.fromAngle(angle).mult(0.10));
 
     this.size = this.baseSize;
-
     let a = attractors[0];
     if (a) {
       let dx = a.x - this.pos.x;
       let dy = a.y - this.pos.y;
       let d = Math.sqrt(dx*dx + dy*dy);
       if (d > 1) {
-        let inv = 0.8 / d;
-        this.acc.x += dx * inv;
-        this.acc.y += dy * inv;
+        this.acc.x += dx * 0.8 / d;
+        this.acc.y += dy * 0.8 / d;
         if (d < 250) {
           let s = (250 - d) / 250 * 4.0;
           this.acc.x += a.vx * s;
