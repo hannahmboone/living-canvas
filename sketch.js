@@ -142,9 +142,9 @@ function draw() {
     gongCooldown--;
     let dotProduct = handVX * lastVX + handVY * lastVY;
     let speed = Math.sqrt(handVX*handVX + handVY*handVY);
-    if (dotProduct < -8 && speed > 5 && gongCooldown <= 0) {
+    if (dotProduct < -4 && speed > 3 && gongCooldown <= 0) {
       triggerGong();
-      gongCooldown = 20;
+      gongCooldown = 10;
     }
     lastVX = handVX;
     lastVY = handVY;
