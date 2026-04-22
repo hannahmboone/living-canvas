@@ -55,7 +55,7 @@ function preload() {
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
-  pixelDensity(1);
+
 
   // Init flocks off screen — they'll be called in during disperse
   for (let i = 0; i < NUM_PARTICLES; i++) {
