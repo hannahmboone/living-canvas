@@ -1,4 +1,3 @@
-
 const NUM_PARTICLES = 1600;
 let flockA = [], flockB = [];
 let attractors = [];
@@ -370,4 +369,3 @@ class Particle {
     circle(this.pos.x, this.pos.y, this.size);
   }
 }
-
