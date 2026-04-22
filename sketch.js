@@ -1,4 +1,3 @@
-
 const NUM_PARTICLES = 1600;
 let flockA = [], flockB = [];
 let attractors = [];
@@ -10,14 +9,8 @@ let cameraStarted = false;
 let framesSinceDetect = 0;
 let handsModel;
 let colorCache = [0, 0, 0];
-
-// Sound
-let audioCtx;
-let soundStarted = false;
-let lastVX = 0, lastVY = 0;
-let gongCooldown = 0;
-
-// Landing
+let audioCtx, soundStarted = false;
+let lastVX = 0, lastVY = 0, gongCooldown = 0;
 let state = 'landing';
 let disperseT = 0;
 let landingParticles = [];
@@ -46,14 +39,11 @@ function preload() {
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
-  // Init flock particles fully visible
   for (let i = 0; i < NUM_PARTICLES; i++) {
     flockA.push(new Particle('A'));
     flockB.push(new Particle('B'));
   }
-  // Landing decorative particles
   for (let i = 0; i < 800; i++) landingParticles.push(new LandingParticle());
-  attractors = [];
 }
 
 function mousePressed() {
@@ -112,7 +102,7 @@ function hsbToRgb(h, s, b) {
   h = h % 360;
   let sv=s/100, bv=b/100, hh=h/60, i=Math.floor(hh), f=hh-i;
   let p=bv*(1-sv), q=bv*(1-sv*f), t=bv*(1-sv*(1-f));
-  let r,g,bl;
+  let r, g, bl;
   if(i===0){r=bv;g=t;bl=p;}else if(i===1){r=q;g=bv;bl=p;}
   else if(i===2){r=p;g=bv;bl=t;}else if(i===3){r=p;g=q;bl=bv;}
   else if(i===4){r=t;g=p;bl=bv;}else{r=bv;g=p;bl=q;}
@@ -129,9 +119,12 @@ function draw() {
 
   } else if (state === 'dispersing') {
     disperseT += 0.018;
+    let fadeIn = constrain(disperseT / 1.5, 0, 1);
+
     for (let p of landingParticles) { p.disperseUpdate(disperseT); p.draw(); }
-    for (let p of flockA) { p.update(); p.draw(); }
-    for (let p of flockB) { p.update(); p.draw(); }
+    for (let p of flockA) { p.fadeAlpha = fadeIn; p.update(); p.draw(); }
+    for (let p of flockB) { p.fadeAlpha = fadeIn; p.update(); p.draw(); }
+
     if (disperseT > 2.5) {
       state = 'canvas';
       statusMsg = 'click to enable camera';
@@ -147,6 +140,7 @@ function draw() {
       if (dot < -4 && speed > 3 && gongCooldown <= 0) { triggerGong(); gongCooldown = 10; }
       lastVX = handVX; lastVY = handVY;
     }
+
     if (handX > 0) {
       attractors = [{ x:handX, y:handY, vx:handVX, vy:handVY }];
     } else if (!cameraStarted) {
@@ -154,10 +148,13 @@ function draw() {
     } else {
       attractors = [];
     }
+
     for (let p of flockA) { p.update(); p.draw(); }
     for (let p of flockB) { p.update(); p.draw(); }
+
     if (statusMsg) {
-      fill(255,255,255,60); noStroke(); textFont('monospace'); textSize(11); textAlign(CENTER);
+      fill(255,255,255,60); noStroke();
+      textFont('monospace'); textSize(11); textAlign(CENTER);
       text(statusMsg, width/2, height-16);
     }
   }
@@ -201,11 +198,15 @@ class LandingParticle {
 }
 
 class Particle {
-  constructor(flock) { this.flock = flock; this.reset(); }
+  constructor(flock) {
+    this.flock = flock;
+    this.fadeAlpha = 1.0;
+    this.reset();
+  }
   reset() {
     let ox = this.flock === 'A' ? -250 : 250;
     let oy = this.flock === 'A' ? -100 : 100;
-    this.pos = createVector(width/2 + ox + random(-180,180), height/2 + oy + random(-180,180));
+    this.pos = createVector(width/2+ox+random(-180,180), height/2+oy+random(-180,180));
     this.vel = p5.Vector.random2D().mult(random(0.1, 0.4));
     this.acc = createVector(0, 0);
     this.baseSize = random(2, 4);
@@ -213,7 +214,7 @@ class Particle {
     this.alpha = random(120, 200);
     this.maxSpeed = random(0.3, 2.0);
     this.life = random(0.6, 1.0);
-    this.age = random(this.life); // stagger so not all die at once
+    this.age = random(this.life);
     this.colorLag = random(-0.2, 0.2);
     this.hueOffset = this.flock === 'B' ? 180 : 0;
   }
@@ -233,9 +234,11 @@ class Particle {
       }
     }
     let ox=this.flock==='A'?-250:250, oy=this.flock==='A'?-100:100;
-    let hx=width/2+ox-this.pos.x, hy=height/2+oy-this.pos.y, hd=Math.sqrt(hx*hx+hy*hy);
+    let hx=width/2+ox-this.pos.x, hy=height/2+oy-this.pos.y;
+    let hd=Math.sqrt(hx*hx+hy*hy);
     if (hd>150){let f=(hd-150)*0.001/hd; this.acc.x+=hx*f; this.acc.y+=hy*f;}
-    this.vel.add(this.acc); this.vel.limit(this.maxSpeed); this.pos.add(this.vel); this.acc.mult(0);
+    this.vel.add(this.acc); this.vel.limit(this.maxSpeed);
+    this.pos.add(this.vel); this.acc.mult(0);
     if (this.pos.x<-10) this.pos.x=width+10; if (this.pos.x>width+10) this.pos.x=-10;
     if (this.pos.y<-10) this.pos.y=height+10; if (this.pos.y>height+10) this.pos.y=-10;
   }
@@ -244,7 +247,7 @@ class Particle {
     let s=55+20*sin((colorT+this.colorLag)*0.7);
     let b=65+15*sin((colorT+this.colorLag)*0.4);
     let col=hsbToRgb(h,s,b);
-    let fade=sin(PI*(this.age/this.life));
+    let fade=sin(PI*(this.age/this.life)) * this.fadeAlpha;
     noStroke(); fill(col[0],col[1],col[2],this.alpha*fade);
     circle(this.pos.x, this.pos.y, this.size);
   }
