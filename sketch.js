@@ -1,4 +1,3 @@
-
 const NUM_PARTICLES = 1600;
 let flockA = [], flockB = [];
 let attractors = [];
@@ -83,22 +82,51 @@ function startSound() {
   if (soundStarted) return;
   soundStarted = true;
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+  // Master gain — very quiet and calm
   gainNode = audioCtx.createGain();
   gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-  gainNode.gain.linearRampToValueAtTime(0.12, audioCtx.currentTime + 2.0);
+  gainNode.gain.linearRampToValueAtTime(0.06, audioCtx.currentTime + 4.0);
   gainNode.connect(audioCtx.destination);
+
+  // Soft reverb using convolver for bowl resonance
+  let reverb = audioCtx.createConvolver();
+  let reverbGain = audioCtx.createGain();
+  reverbGain.gain.value = 0.4;
+  reverbGain.connect(gainNode);
+
+  // Create impulse response for reverb
+  let rate = audioCtx.sampleRate;
+  let length = rate * 3;
+  let impulse = audioCtx.createBuffer(2, length, rate);
+  for (let c = 0; c < 2; c++) {
+    let d = impulse.getChannelData(c);
+    for (let i = 0; i < length; i++) {
+      d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 2.5);
+    }
+  }
+  reverb.buffer = impulse;
+  reverb.connect(reverbGain);
+
+  // Three detuned sine waves — low, warm singing bowl frequencies
   oscA = audioCtx.createOscillator();
   oscB = audioCtx.createOscillator();
   oscC = audioCtx.createOscillator();
-  oscA.type = 'sine'; oscA.frequency.value = 220;
-  oscB.type = 'sine'; oscB.frequency.value = 220 * 1.004;
-  oscC.type = 'sine'; oscC.frequency.value = 440;
-  oscA.connect(gainNode);
-  oscB.connect(gainNode);
-  oscC.connect(gainNode);
-  oscA.start();
-  oscB.start();
-  oscC.start();
+
+  oscA.type = 'sine'; oscA.frequency.value = 110;       // low root
+  oscB.type = 'sine'; oscB.frequency.value = 110 * 1.003; // very slight detune = shimmer
+  oscC.type = 'sine'; oscC.frequency.value = 165;       // gentle fifth harmonic
+
+  // Soft individual gains
+  let gA = audioCtx.createGain(); gA.gain.value = 0.6;
+  let gB = audioCtx.createGain(); gB.gain.value = 0.3;
+  let gC = audioCtx.createGain(); gC.gain.value = 0.15;
+
+  oscA.connect(gA); gA.connect(gainNode); gA.connect(reverb);
+  oscB.connect(gB); gB.connect(gainNode); gB.connect(reverb);
+  oscC.connect(gC); gC.connect(gainNode); gC.connect(reverb);
+
+  oscA.start(); oscB.start(); oscC.start();
 }
 
 function hsbToRgb(h, s, b) {
@@ -125,16 +153,21 @@ function draw() {
 
   // Update sound
   if (soundStarted && audioCtx) {
-    let baseFreq = 220 + 220 * (0.5 + 0.5 * Math.sin(colorT * 0.5));
-    oscA.frequency.setTargetAtTime(baseFreq, audioCtx.currentTime, 0.5);
-    oscB.frequency.setTargetAtTime(baseFreq * 1.004, audioCtx.currentTime, 0.5);
-    oscC.frequency.setTargetAtTime(baseFreq * 2.0, audioCtx.currentTime, 0.5);
+    // Frequency drifts very slowly — barely perceptible shift, like a bowl settling
+    let baseFreq = 110 + 18 * Math.sin(colorT * 0.15);
+    oscA.frequency.setTargetAtTime(baseFreq, audioCtx.currentTime, 2.0);
+    oscB.frequency.setTargetAtTime(baseFreq * 1.003, audioCtx.currentTime, 2.0);
+    oscC.frequency.setTargetAtTime(baseFreq * 1.5, audioCtx.currentTime, 2.0);
+
+    // Volume breathes gently with particle flow, swells slightly with hand movement
     if (handX > 0) {
       let speed = Math.sqrt(handVX*handVX + handVY*handVY);
-      let swell = Math.min(speed / 30, 1) * 0.05;
-      gainNode.gain.setTargetAtTime(0.12 + swell, audioCtx.currentTime, 0.3);
+      let swell = Math.min(speed / 40, 1) * 0.03;
+      gainNode.gain.setTargetAtTime(0.06 + swell, audioCtx.currentTime, 0.8);
     } else {
-      gainNode.gain.setTargetAtTime(0.12, audioCtx.currentTime, 1.0);
+      // Gentle slow breathing when no hand
+      let breathe = 0.06 + 0.015 * Math.sin(colorT * 0.3);
+      gainNode.gain.setTargetAtTime(breathe, audioCtx.currentTime, 2.0);
     }
   }
 
@@ -251,3 +284,4 @@ class Particle {
     circle(this.pos.x, this.pos.y, this.size);
   }
 }
+
