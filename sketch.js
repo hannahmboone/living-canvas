@@ -1,4 +1,3 @@
-
 const NUM_PARTICLES = 1600; // per flock
 let flockA = [], flockB = [];
 let attractors = [];
@@ -93,7 +92,7 @@ function hsbToRgb(h, s, b) {
 }
 
 function draw() {
-  background(255, 255, 255, 40);
+  background(0, 0, 0, 40);
   colorT += 0.003;
 
   if (handX > 0) {
@@ -107,7 +106,7 @@ function draw() {
   for (let p of flockA) { p.update(); p.draw(); }
   for (let p of flockB) { p.update(); p.draw(); }
 
-  fill(0, 0, 0, 60);
+  fill(255, 255, 255, 60);
   noStroke();
   textFont('monospace');
   textSize(11);
