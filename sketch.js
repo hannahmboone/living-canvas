@@ -165,44 +165,23 @@ function draw() {
 }
 
 function drawLanding() {
-  // Animate landing particles
   for (let p of landingParticles) {
     p.update();
     p.draw();
   }
-
-  // Title — top left
-  fill(255, 255, 255, 220);
-  noStroke();
-  textFont('monospace');
-  textAlign(LEFT, TOP);
-  textSize(36);
-  textStyle(NORMAL);
-  text('flock', 60, 80);
-
-  // Subtitle
-  fill(255, 255, 255, 120);
-  textSize(12);
-  textAlign(LEFT, TOP);
-  text('press anywhere to start', 60, 180);
 }
 
 function drawDispersing() {
   disperseT += 0.025;
   colorT += 0.003;
-
-  // Fade out landing particles
-  for (let p of landingParticles) {
-    p.disperseUpdate(disperseT);
-    p.draw();
-  }
-
-  // Fade in flocks
+  // Hide HTML UI
+  document.getElementById('landing-ui').style.opacity = Math.max(0, 1 - disperseT * 2);
+  for (let p of landingParticles) { p.disperseUpdate(disperseT); p.draw(); }
   for (let p of flockA) { p.update(); p.draw(); }
   for (let p of flockB) { p.update(); p.draw(); }
-
   if (disperseT > 1.5) {
     state = 'canvas';
+    document.getElementById('landing-ui').style.display = 'none';
     statusMsg = 'click to enable camera';
   }
 }
@@ -391,3 +370,4 @@ class Particle {
     circle(this.pos.x, this.pos.y, this.size);
   }
 }
+
