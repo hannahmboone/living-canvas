@@ -77,11 +77,7 @@ function setup() {
 
 function mousePressed() {
   if (state === 'landing') {
-    let cx = 60 + 22;
-    let cy = 230;
-    if (dist(mouseX, mouseY, cx, cy) < 12) {
-      startDisperse();
-    }
+    startDisperse();
   } else if (state === 'canvas' && !cameraStarted) {
     cameraStarted = true;
     startMediaPipe();
@@ -180,7 +176,7 @@ function drawLanding() {
   noStroke();
   textFont('monospace');
   textAlign(LEFT, TOP);
-  textSize(96);
+  textSize(64);
   scale(1, 1.3);
   text('flock', 60, 50 / 1.3);
   scale(1, 1/1.3);
@@ -189,16 +185,7 @@ function drawLanding() {
   fill(255, 255, 255, 120);
   textSize(12);
   textAlign(LEFT, TOP);
-  text('press to start', 60, 165);
-
-  // Circular button — closer to subtitle
-  let cx = 60 + 22;
-  let cy = 230;
-  let r = 12;
-  let hover = dist(mouseX, mouseY, cx, cy) < r;
-  fill(255, 255, 255, hover ? 255 : 180);
-  noStroke();
-  circle(cx, cy, r * 2);
+  text('press anywhere to start', 60, 180);
 }
 
 function drawDispersing() {
