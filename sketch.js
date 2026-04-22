@@ -176,10 +176,9 @@ function drawLanding() {
   noStroke();
   textFont('monospace');
   textAlign(LEFT, TOP);
-  textSize(42);
-  scale(1, 1.3);
-  text('flock', 60, 50 / 1.3);
-  scale(1, 1/1.3);
+  textSize(36);
+  textStyle(NORMAL);
+  text('flock', 60, 80);
 
   // Subtitle
   fill(255, 255, 255, 120);
