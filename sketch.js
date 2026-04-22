@@ -1,4 +1,3 @@
-
 const NUM_PARTICLES = 1600;
 let flockA = [], flockB = [];
 let attractors = [];
@@ -153,7 +152,7 @@ function hsbToRgb(h, s, b) {
 }
 
 function draw() {
-  background(0);
+  background(0, 0, 0, 40);
 
   if (state === 'landing') {
     drawLanding();
