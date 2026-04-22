@@ -50,16 +50,13 @@ function setup() {
 
 function mousePressed() {
   if (state === 'landing') {
-    state = 'dispersing';
-    disperseT = 0;
-    // Reset all particles to middle of their life so they're fully visible
-    for (let p of flockA) { p.age = p.life * 0.5; }
-    for (let p of flockB) { p.age = p.life * 0.5; }
-    attractors = [{ x: width/2, y: height/2, vx: 0, vy: 0 }];
+    state = 'canvas';
+    attractors = [];
+    statusMsg = 'click to enable camera';
+    let ui = document.getElementById('landing-ui');
+    if (ui) { ui.style.transition = 'opacity 0.8s'; ui.style.opacity = '0'; setTimeout(() => { ui.style.display = 'none'; }, 800); }
     startSound();
     triggerGong();
-    let ui = document.getElementById('landing-ui');
-    if (ui) { ui.style.transition = 'opacity 1s'; ui.style.opacity = '0'; }
   } else if (state === 'canvas' && !cameraStarted) {
     cameraStarted = true;
     startMediaPipe();
