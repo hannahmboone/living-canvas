@@ -1,3 +1,4 @@
+
 const NUM_PARTICLES = 1600;
 let flockA = [], flockB = [];
 let attractors = [];
@@ -86,7 +87,7 @@ function startSound() {
   // Master gain — very quiet and calm
   gainNode = audioCtx.createGain();
   gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-  gainNode.gain.linearRampToValueAtTime(0.06, audioCtx.currentTime + 4.0);
+  gainNode.gain.linearRampToValueAtTime(0.0, audioCtx.currentTime + 4.0);
   gainNode.connect(audioCtx.destination);
 
   // Soft reverb using convolver for bowl resonance
@@ -113,9 +114,9 @@ function startSound() {
   oscB = audioCtx.createOscillator();
   oscC = audioCtx.createOscillator();
 
-  oscA.type = 'sine'; oscA.frequency.value = 110;       // low root
-  oscB.type = 'sine'; oscB.frequency.value = 110 * 1.003; // very slight detune = shimmer
-  oscC.type = 'sine'; oscC.frequency.value = 165;       // gentle fifth harmonic
+  oscA.type = 'sine'; oscA.frequency.value = 55;        // very low root
+  oscB.type = 'sine'; oscB.frequency.value = 55 * 1.003; // subtle shimmer
+  oscC.type = 'sine'; oscC.frequency.value = 82.5;      // low fifth
 
   // Soft individual gains
   let gA = audioCtx.createGain(); gA.gain.value = 0.6;
@@ -154,20 +155,20 @@ function draw() {
   // Update sound
   if (soundStarted && audioCtx) {
     // Frequency drifts very slowly — barely perceptible shift, like a bowl settling
-    let baseFreq = 110 + 18 * Math.sin(colorT * 0.15);
-    oscA.frequency.setTargetAtTime(baseFreq, audioCtx.currentTime, 2.0);
-    oscB.frequency.setTargetAtTime(baseFreq * 1.003, audioCtx.currentTime, 2.0);
-    oscC.frequency.setTargetAtTime(baseFreq * 1.5, audioCtx.currentTime, 2.0);
+    let baseFreq = 55 + 9 * Math.sin(colorT * 0.1);
+    oscA.frequency.setTargetAtTime(baseFreq, audioCtx.currentTime, 3.0);
+    oscB.frequency.setTargetAtTime(baseFreq * 1.003, audioCtx.currentTime, 3.0);
+    oscC.frequency.setTargetAtTime(baseFreq * 1.5, audioCtx.currentTime, 3.0);
 
     // Volume breathes gently with particle flow, swells slightly with hand movement
     if (handX > 0) {
       let speed = Math.sqrt(handVX*handVX + handVY*handVY);
-      let swell = Math.min(speed / 40, 1) * 0.03;
-      gainNode.gain.setTargetAtTime(0.06 + swell, audioCtx.currentTime, 0.8);
+      // Volume rises with hand speed — silent at rest, full at fast movement
+      let vol = Math.min(speed / 20, 1) * 0.22;
+      gainNode.gain.setTargetAtTime(vol, audioCtx.currentTime, 0.4);
     } else {
-      // Gentle slow breathing when no hand
-      let breathe = 0.06 + 0.015 * Math.sin(colorT * 0.3);
-      gainNode.gain.setTargetAtTime(breathe, audioCtx.currentTime, 2.0);
+      // Fade out slowly when hand leaves
+      gainNode.gain.setTargetAtTime(0, audioCtx.currentTime, 1.5);
     }
   }
 
