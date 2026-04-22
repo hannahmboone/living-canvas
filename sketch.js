@@ -1,4 +1,3 @@
-
 const NUM_PARTICLES = 1600;
 let flockA = [], flockB = [];
 let attractors = [];
@@ -54,15 +53,7 @@ function setup() {
   attractors = [{ x: width/2, y: height/2, vx: 0, vy: 0 }];
 
   // Set up singing bowl oscillators
-  osc1 = new p5.Oscillator('sine');
-  osc2 = new p5.Oscillator('sine');
-  osc3 = new p5.Oscillator('sine');
-  osc1.amp(0);
-  osc2.amp(0);
-  osc3.amp(0);
-  osc1.start();
-  osc2.start();
-  osc3.start();
+
 }
 
 function startSound() {
@@ -121,23 +112,18 @@ function draw() {
   background(0, 0, 0, 40);
   colorT += 0.003;
 
-  // Update sound — base frequency cycles with color
-  if (soundStarted) {
-    // Map colorT to a frequency range (200hz - 600hz, pentatonic feel)
-    let baseFreq = map(sin(colorT * 0.5), -1, 1, 220, 440);
-    osc1.freq(baseFreq, 0.5);
-    osc2.freq(baseFreq * 1.004, 0.5);   // slight detune for shimmer
-    osc3.freq(baseFreq * 2.0, 0.5);      // octave overtone
-
-    // Swell volume when hand is active
+  // Update sound
+  if (soundStarted && audioCtx) {
+    let baseFreq = 220 + 220 * (0.5 + 0.5 * Math.sin(colorT * 0.5));
+    osc1.frequency.setTargetAtTime(baseFreq, audioCtx.currentTime, 0.5);
+    osc2.frequency.setTargetAtTime(baseFreq * 1.004, audioCtx.currentTime, 0.5);
+    osc3.frequency.setTargetAtTime(baseFreq * 2.0, audioCtx.currentTime, 0.5);
     if (handX > 0) {
       let speed = Math.sqrt(handVX*handVX + handVY*handVY);
-      let swell = map(speed, 0, 30, 0, 0.06);
-      osc1.amp(0.18 + swell, 0.3);
-      osc2.amp(0.10 + swell * 0.5, 0.3);
+      let swell = Math.min(speed / 30, 1) * 0.05;
+      gainNode.gain.setTargetAtTime(0.12 + swell, audioCtx.currentTime, 0.3);
     } else {
-      osc1.amp(0.18, 1.0);
-      osc2.amp(0.10, 1.0);
+      gainNode.gain.setTargetAtTime(0.12, audioCtx.currentTime, 1.0);
     }
   }
 
