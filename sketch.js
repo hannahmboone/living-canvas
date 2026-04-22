@@ -1,3 +1,4 @@
+
 const NUM_PARTICLES = 1600;
 let flockA = [], flockB = [];
 let attractors = [];
@@ -77,8 +78,8 @@ function setup() {
 function mousePressed() {
   if (state === 'landing') {
     let cx = 60 + 22;
-    let cy = height - 100;
-    if (dist(mouseX, mouseY, cx, cy) < 28) {
+    let cy = 230;
+    if (dist(mouseX, mouseY, cx, cy) < 12) {
       startDisperse();
     }
   } else if (state === 'canvas' && !cameraStarted) {
@@ -180,7 +181,9 @@ function drawLanding() {
   textFont('monospace');
   textAlign(LEFT, TOP);
   textSize(96);
-  text('flock', 60, 50);
+  scale(1, 1.3);
+  text('flock', 60, 50 / 1.3);
+  scale(1, 1/1.3);
 
   // Subtitle
   fill(255, 255, 255, 120);
@@ -188,20 +191,14 @@ function drawLanding() {
   textAlign(LEFT, TOP);
   text('press to start', 60, 165);
 
-  // Circular button — bottom left
+  // Circular button — closer to subtitle
   let cx = 60 + 22;
-  let cy = height - 100;
-  let r = 28;
+  let cy = 230;
+  let r = 12;
   let hover = dist(mouseX, mouseY, cx, cy) < r;
-  noFill();
-  stroke(255, 255, 255, hover ? 230 : 130);
-  strokeWeight(1);
-  circle(cx, cy, r * 2);
-  fill(255, 255, 255, hover ? 230 : 130);
+  fill(255, 255, 255, hover ? 255 : 180);
   noStroke();
-  textSize(16);
-  textAlign(CENTER, CENTER);
-  text('→', cx, cy);
+  circle(cx, cy, r * 2);
 }
 
 function drawDispersing() {
