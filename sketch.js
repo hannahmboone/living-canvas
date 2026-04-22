@@ -1,3 +1,4 @@
+
 const NUM_PARTICLES = 1600;
 let flockA = [], flockB = [];
 let attractors = [];
@@ -50,6 +51,9 @@ function mousePressed() {
   if (state === 'landing') {
     state = 'dispersing';
     disperseT = 0;
+    // Reset all flock particles so they're fresh and visible
+    for (let p of flockA) { p.age = 0; p.fadeAlpha = 1.0; }
+    for (let p of flockB) { p.age = 0; p.fadeAlpha = 1.0; }
     startSound();
     triggerGong();
     let ui = document.getElementById('landing-ui');
