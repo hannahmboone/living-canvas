@@ -130,7 +130,26 @@ function startSound() {
   oscA.start(); oscB.start(); oscC.start();
 }
 
-function hsbToRgb(h, s, b) {
+function triggerGong() {
+  if (!soundStarted || !audioCtx) return;
+  // Pick a random pentatonic note — light and airy
+  let notes = [261.6, 293.6, 329.6, 392, 440, 523.2];
+  let freq = notes[Math.floor(Math.random() * notes.length)];
+
+  let osc = audioCtx.createOscillator();
+  let g = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.value = freq;
+  osc.connect(g);
+  g.connect(gainNode);
+
+  let t = audioCtx.currentTime;
+  g.gain.setValueAtTime(0.18, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 2.5); // long soft decay
+
+  osc.start(t);
+  osc.stop(t + 2.5);
+}
   h = h % 360;
   let sv = s/100, bv = b/100;
   let hh = h/60, i = Math.floor(hh), f = hh - i;
@@ -163,12 +182,14 @@ function draw() {
     // Volume breathes gently with particle flow, swells slightly with hand movement
     if (handX > 0) {
       let speed = Math.sqrt(handVX*handVX + handVY*handVY);
-      // Volume rises with hand speed — silent at rest, full at fast movement
       let vol = Math.min(speed / 20, 1) * 0.22;
       gainNode.gain.setTargetAtTime(vol, audioCtx.currentTime, 0.4);
+      // Trigger gong on fast flick, max once every 30 frames
+      if (speed > 18 && frameCount % 30 === 0) triggerGong();
     } else {
-      // Fade out slowly when hand leaves
-      gainNode.gain.setTargetAtTime(0, audioCtx.currentTime, 1.5);
+      gainNode.gain.cancelScheduledValues(audioCtx.currentTime);
+      gainNode.gain.setValueAtTime(gainNode.gain.value, audioCtx.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 2.0);
     }
   }
 
@@ -285,4 +306,3 @@ class Particle {
     circle(this.pos.x, this.pos.y, this.size);
   }
 }
-
