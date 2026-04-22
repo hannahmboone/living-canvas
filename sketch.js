@@ -1,3 +1,4 @@
+
 const NUM_PARTICLES = 1600;
 let flockA = [], flockB = [];
 let attractors = [];
@@ -10,9 +11,11 @@ let framesSinceDetect = 0;
 let handsModel;
 let colorCache = [0, 0, 0];
 
-// Web Audio
-let audioCtx, oscA, oscB, oscC, gainNode;
+// Sound
+let audioCtx;
 let soundStarted = false;
+let lastVX = 0, lastVY = 0;
+let gongCooldown = 0;
 
 function preload() {
   handsModel = new Hands({
@@ -82,73 +85,37 @@ function startSound() {
   if (soundStarted) return;
   soundStarted = true;
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-  // Master gain — very quiet and calm
-  gainNode = audioCtx.createGain();
-  gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-  gainNode.gain.linearRampToValueAtTime(0.0, audioCtx.currentTime + 4.0);
-  gainNode.connect(audioCtx.destination);
-
-  // Soft reverb using convolver for bowl resonance
-  let reverb = audioCtx.createConvolver();
-  let reverbGain = audioCtx.createGain();
-  reverbGain.gain.value = 0.4;
-  reverbGain.connect(gainNode);
-
-  // Create impulse response for reverb
-  let rate = audioCtx.sampleRate;
-  let length = rate * 3;
-  let impulse = audioCtx.createBuffer(2, length, rate);
-  for (let c = 0; c < 2; c++) {
-    let d = impulse.getChannelData(c);
-    for (let i = 0; i < length; i++) {
-      d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 2.5);
-    }
-  }
-  reverb.buffer = impulse;
-  reverb.connect(reverbGain);
-
-  // Three detuned sine waves — low, warm singing bowl frequencies
-  oscA = audioCtx.createOscillator();
-  oscB = audioCtx.createOscillator();
-  oscC = audioCtx.createOscillator();
-
-  oscA.type = 'sine'; oscA.frequency.value = 55;        // very low root
-  oscB.type = 'sine'; oscB.frequency.value = 55 * 1.003; // subtle shimmer
-  oscC.type = 'sine'; oscC.frequency.value = 82.5;      // low fifth
-
-  // Soft individual gains
-  let gA = audioCtx.createGain(); gA.gain.value = 0.6;
-  let gB = audioCtx.createGain(); gB.gain.value = 0.3;
-  let gC = audioCtx.createGain(); gC.gain.value = 0.15;
-
-  oscA.connect(gA); gA.connect(gainNode); gA.connect(reverb);
-  oscB.connect(gB); gB.connect(gainNode); gB.connect(reverb);
-  oscC.connect(gC); gC.connect(gainNode); gC.connect(reverb);
-
-  oscA.start(); oscB.start(); oscC.start();
 }
 
 function triggerGong() {
-  if (!soundStarted || !audioCtx) return;
-  // Pick a random pentatonic note — light and airy
-  let notes = [261.6, 293.6, 329.6, 392, 440, 523.2];
+  if (!audioCtx) return;
+  let notes = [196, 220, 261.6, 293.6, 329.6, 392];
   let freq = notes[Math.floor(Math.random() * notes.length)];
 
   let osc = audioCtx.createOscillator();
+  let osc2 = audioCtx.createOscillator();
   let g = audioCtx.createGain();
+  let g2 = audioCtx.createGain();
+
   osc.type = 'sine';
   osc.frequency.value = freq;
+  osc2.type = 'sine';
+  osc2.frequency.value = freq * 2.756;
+  g2.gain.value = 0.3;
+
   osc.connect(g);
-  g.connect(gainNode);
+  osc2.connect(g2);
+  g2.connect(g);
+  g.connect(audioCtx.destination);
 
   let t = audioCtx.currentTime;
-  g.gain.setValueAtTime(0.18, t);
-  g.gain.exponentialRampToValueAtTime(0.001, t + 2.5); // long soft decay
-
-  osc.start(t);
-  osc.stop(t + 2.5);
+  g.gain.setValueAtTime(0.22, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 3.0);
+  osc.start(t); osc.stop(t + 3.0);
+  osc2.start(t); osc2.stop(t + 3.0);
 }
+
+function hsbToRgb(h, s, b) {
   h = h % 360;
   let sv = s/100, bv = b/100;
   let hh = h/60, i = Math.floor(hh), f = hh - i;
@@ -170,29 +137,19 @@ function draw() {
   background(0, 0, 0, 40);
   colorT += 0.003;
 
-  // Update sound
-  if (soundStarted && audioCtx) {
-    // Frequency drifts very slowly — barely perceptible shift, like a bowl settling
-    let baseFreq = 55 + 9 * Math.sin(colorT * 0.1);
-    oscA.frequency.setTargetAtTime(baseFreq, audioCtx.currentTime, 3.0);
-    oscB.frequency.setTargetAtTime(baseFreq * 1.003, audioCtx.currentTime, 3.0);
-    oscC.frequency.setTargetAtTime(baseFreq * 1.5, audioCtx.currentTime, 3.0);
-
-    // Volume breathes gently with particle flow, swells slightly with hand movement
-    if (handX > 0) {
-      let speed = Math.sqrt(handVX*handVX + handVY*handVY);
-      let vol = Math.min(speed / 20, 1) * 0.22;
-      gainNode.gain.setTargetAtTime(vol, audioCtx.currentTime, 0.4);
-      // Trigger gong on fast flick, max once every 30 frames
-      if (speed > 18 && frameCount % 30 === 0) triggerGong();
-    } else {
-      gainNode.gain.cancelScheduledValues(audioCtx.currentTime);
-      gainNode.gain.setValueAtTime(gainNode.gain.value, audioCtx.currentTime);
-      gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 2.0);
+  // Detect direction change and trigger gong
+  if (soundStarted && handX > 0) {
+    gongCooldown--;
+    let dotProduct = handVX * lastVX + handVY * lastVY;
+    let speed = Math.sqrt(handVX*handVX + handVY*handVY);
+    if (dotProduct < -8 && speed > 5 && gongCooldown <= 0) {
+      triggerGong();
+      gongCooldown = 20;
     }
+    lastVX = handVX;
+    lastVY = handVY;
   }
 
-  // Update attractors
   if (handX > 0) {
     attractors = [{ x: handX, y: handY, vx: handVX, vy: handVY }];
   } else if (!cameraStarted) {
