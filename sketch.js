@@ -245,8 +245,7 @@ class Particle {
     let b=85+10*sin((colorT+this.colorLag)*0.4);
     let col=hsbToRgb(h,s,b);
     // Use sin fade but clamp minimum so particles never fully disappear
-    let fade = 0.4 + 0.6 * sin(PI*(this.age/this.life));
-    noStroke(); fill(col[0],col[1],col[2],this.alpha*fade);
+    noStroke(); fill(col[0],col[1],col[2],this.alpha);
     circle(this.pos.x, this.pos.y, this.size);
   }
 }
