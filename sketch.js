@@ -51,7 +51,7 @@ function setup() {
 function mousePressed() {
   if (state === 'landing') {
     state = 'canvas';
-    attractors = [];
+    attractors = [{ x: width/2, y: height/2, vx: 0, vy: 0 }];
     statusMsg = 'click to enable camera';
     let ui = document.getElementById('landing-ui');
     if (ui) { ui.style.transition = 'opacity 0.8s'; ui.style.opacity = '0'; setTimeout(() => { ui.style.display = 'none'; }, 800); }
