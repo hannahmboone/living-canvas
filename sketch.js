@@ -1,3 +1,4 @@
+
 const NUM_PARTICLES = 1600;
 let flockA = [], flockB = [];
 let attractors = [];
@@ -58,8 +59,8 @@ function setup() {
 
   // Init flocks off screen — they'll be called in during disperse
   for (let i = 0; i < NUM_PARTICLES; i++) {
-    flockA.push(new Particle('A', true));
-    flockB.push(new Particle('B', true));
+    flockA.push(new Particle('A', false));
+    flockB.push(new Particle('B', false));
   }
   attractors = [];
 
@@ -186,6 +187,7 @@ function drawDispersing() {
 }
 
 function drawCanvas() {
+  background(0, 0, 0, 40);
   background(0, 0, 0, 40);
   colorT += 0.003;
 
