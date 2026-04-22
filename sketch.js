@@ -121,12 +121,16 @@ function draw() {
     disperseT += 0.018;
     let fadeIn = constrain(disperseT / 1.5, 0, 1);
 
+    // Keep flock centered during transition
+    attractors = [{ x: width/2, y: height/2, vx: 0, vy: 0 }];
+
     for (let p of landingParticles) { p.disperseUpdate(disperseT); p.draw(); }
     for (let p of flockA) { p.fadeAlpha = fadeIn; p.update(); p.draw(); }
     for (let p of flockB) { p.fadeAlpha = fadeIn; p.update(); p.draw(); }
 
     if (disperseT > 2.5) {
       state = 'canvas';
+      attractors = [];
       statusMsg = 'click to enable camera';
       let ui = document.getElementById('landing-ui');
       if (ui) ui.style.display = 'none';
