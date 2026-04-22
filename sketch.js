@@ -114,7 +114,7 @@ function hsbToRgb(h, s, b) {
 }
 
 function draw() {
-  background(0, 0, 0, 40);
+  background(0, 0, 0, 15);
   colorT += 0.003;
 
   if (state === 'landing') {
@@ -241,8 +241,8 @@ class Particle {
   }
   draw() {
     let h=((colorT+this.colorLag)*60+this.hueOffset)%360;
-    let s=55+20*sin((colorT+this.colorLag)*0.7);
-    let b=65+15*sin((colorT+this.colorLag)*0.4);
+    let s=70+15*sin((colorT+this.colorLag)*0.7);
+    let b=85+10*sin((colorT+this.colorLag)*0.4);
     let col=hsbToRgb(h,s,b);
     // Use sin fade but clamp minimum so particles never fully disappear
     let fade = 0.4 + 0.6 * sin(PI*(this.age/this.life));
